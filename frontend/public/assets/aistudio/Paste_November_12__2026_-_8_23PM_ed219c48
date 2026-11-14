@@ -1,0 +1,814 @@
+import React, { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { 
+  Layers, 
+  Eye, 
+  Sun, 
+  Sparkles, 
+  Hammer,
+  ShoppingBag,
+  Ruler,
+  Phone,
+  X,
+  Footprints,
+  Palette
+} from 'lucide-react';
+import { 
+  buildRopero, 
+  buildComedor, 
+  buildEscritorio, 
+  buildEstanteria, 
+  buildWorkbench 
+} from '../utils/furnitureModels.js';
+import { createWorkshopFloorTexture } from '../utils/proceduralTextures.js';
+
+// Catálogo ampliado de muebles con diversidad de colores y acabados
+const MUEBLES_SHOWROOM = {
+  ropero: {
+    id: 1,
+    nombre: 'Ropero Esmeralda 3 Cuerpos c/Gavetas',
+    categoria: 'Dormitorio & Clósets',
+    modelo_3d: 'ropero',
+    madera: 'Mara Boliviana Maciza',
+    color_acabado: 'Nogal Oscuro Laqueado al Poliuretano',
+    alto_cm: 210,
+    ancho_cm: 180,
+    profundidad_cm: 60,
+    dimensiones: '210 cm Alto x 180 cm Ancho x 60 cm Prof.',
+    precio_bs: 4850,
+    anticipo_bs: 2425,
+    stock: 2,
+    disponibilidad: 'Entrega Inmediata en Oruro',
+    descripcion: 'Ropero residencial de 3 cuerpos con espejos biselados y puertas abatibles interactivas. Tono madera noble y oscura.',
+    compatibilidad: 'Apto para habitaciones residenciales estándar.'
+  },
+  comedor: {
+    id: 2,
+    nombre: 'Juego de Comedor Virrey 6 Sillas',
+    categoria: 'Comedor & Living',
+    modelo_3d: 'comedor',
+    madera: 'Cedro Real Seleccionado',
+    color_acabado: 'Caramelo Natural Satinado',
+    alto_cm: 78,
+    ancho_cm: 180,
+    profundidad_cm: 95,
+    dimensiones: '78 cm Alto x 180 cm Ancho x 95 cm Prof.',
+    precio_bs: 3750,
+    anticipo_bs: 1875,
+    stock: 3,
+    disponibilidad: 'En Exhibición / Entrega Inmediata',
+    descripcion: 'Mesa de comedor de 6 puestos en cedro macizo con tono cálido natural y acabado brillante.',
+    compatibilidad: 'Ideal para comedores amplios.'
+  },
+  escritorio: {
+    id: 3,
+    nombre: 'Escritorio Gerencial en L con Cajonera',
+    categoria: 'Oficina & Estudio',
+    modelo_3d: 'escritorio',
+    madera: 'Roble Americano & Cedro',
+    color_acabado: 'Roble Miel Protector',
+    alto_cm: 76,
+    ancho_cm: 160,
+    profundidad_cm: 140,
+    dimensiones: '76 cm Alto x 160 cm Ancho x 140 cm Retorno',
+    precio_bs: 2600,
+    anticipo_bs: 1300,
+    stock: 2,
+    disponibilidad: 'Listo para despacho en Oruro',
+    descripcion: 'Escritorio ejecutivo con retorno lateral para computadoras y cajones con cerradura.',
+    compatibilidad: 'Excelente para oficinas modernas.'
+  },
+  estante: {
+    id: 4,
+    nombre: 'Estantería Librero Modular Tajibo',
+    categoria: 'Bibliotecas & Estantes',
+    modelo_3d: 'estante',
+    madera: 'Tajibo de Primera',
+    color_acabado: 'Pátina Clásica Artesanal',
+    alto_cm: 200,
+    ancho_cm: 120,
+    profundidad_cm: 35,
+    dimensiones: '200 cm Alto x 120 cm Ancho x 35 cm Prof.',
+    precio_bs: 2150,
+    anticipo_bs: 1075,
+    stock: 4,
+    disponibilidad: 'Stock en Almacén Oruro',
+    descripcion: 'Librero modular de 5 niveles en madera exótica de Tajibo con vetas oscuras contrastadas.',
+    compatibilidad: 'Se adosa a cualquier pared plana.'
+  },
+  sillon: {
+    id: 5,
+    nombre: 'Sillón Gerencial Ejecutivo Moderno',
+    categoria: 'Oficina & Estudio',
+    modelo_3d: 'sillon',
+    madera: 'Estructura Metálica & Madera Reforzada',
+    color_acabado: 'Cuero Sintético Negro Brillante & Cromo',
+    alto_cm: 120,
+    ancho_cm: 65,
+    profundidad_cm: 65,
+    dimensiones: '120 cm Alto x 65 cm Ancho x 65 cm Prof.',
+    precio_bs: 1450,
+    anticipo_bs: 725,
+    stock: 5,
+    disponibilidad: 'Entrega Inmediata',
+    descripcion: 'Sillón ergonómico de alta gama con tapizado en cuero negro profundo y detalles cromados metálicos.',
+    compatibilidad: 'Ideal para combinar con escritorios gerenciales.'
+  },
+  comoda: {
+    id: 6,
+    nombre: 'Cómoda Scandi Bicolor 4 Gavetas',
+    categoria: 'Dormitorio & Clósets',
+    modelo_3d: 'comoda',
+    madera: 'Pino Blanco & MDF Texturizado',
+    color_acabado: 'Gris Grafito Mate & Madera Natural',
+    alto_cm: 95,
+    ancho_cm: 100,
+    profundidad_cm: 45,
+    dimensiones: '95 cm Alto x 100 cm Ancho x 45 cm Prof.',
+    precio_bs: 1890,
+    anticipo_bs: 945,
+    stock: 3,
+    disponibilidad: 'En Exhibición Oruro',
+    descripcion: 'Cómoda de diseño escandinavo con contraste elegante entre frentes en gris grafito y estructura en madera natural.',
+    compatibilidad: 'Perfecta para dormitorios juveniles o principales.'
+  }
+};
+
+export default function Tienda3D({ onGoToPanel, onOpenCotizador, onComprarMueble }) {
+  const mountRef = useRef(null);
+
+  // Estados de UI
+  const [selectedMuebleKey, setSelectedMuebleKey] = useState('ropero');
+  const [showMuebleCard, setShowMuebleCard] = useState(false);
+  const [showDonTeofiloModal, setShowDonTeofiloModal] = useState(false);
+  const [showMariaModal, setShowMariaModal] = useState(false);
+  const [currentTone, setCurrentTone] = useState('dia'); // 'dia', 'tarde', 'noche'
+  const [bgColor, setBgColor] = useState('claro'); // 'claro', 'oscuro', 'madera'
+  const [isLocked, setIsLocked] = useState(false);
+
+  // Three.js Refs
+  const sceneRef = useRef(null);
+  const cameraRef = useRef(null);
+  const controlsRef = useRef(null);
+  const rendererRef = useRef(null);
+  const lightsRef = useRef({});
+  const interactiveObjectsRef = useRef([]);
+  const billBoardsRef = useRef([]); // Referencias para mantener las imágenes flotantes mirando al usuario
+
+  // Física y movimiento FPS
+  const moveStateRef = useRef({ forward: false, backward: false, left: false, right: false });
+  const velocityRef = useRef(new THREE.Vector3());
+  const directionRef = useRef(new THREE.Vector3());
+  const canJumpRef = useRef(false);
+
+  useEffect(() => {
+    if (!mountRef.current) return;
+    const container = mountRef.current;
+    const width = container.clientWidth || window.innerWidth;
+    const height = container.clientHeight || window.innerHeight;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    container.replaceChildren(renderer.domElement);
+    rendererRef.current = renderer;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf6f4ee);
+    scene.fog = new THREE.FogExp2(0xf6f4ee, 0.015);
+    sceneRef.current = scene;
+
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmremGenerator.dispose();
+
+    const camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 100);
+    camera.position.set(0, 1.7, 6);
+    cameraRef.current = camera;
+
+    const controls = new PointerLockControls(camera, renderer.domElement);
+    controlsRef.current = controls;
+
+    controls.addEventListener('lock', () => setIsLocked(true));
+    controls.addEventListener('unlock', () => setIsLocked(false));
+
+    // Iluminación
+    const hemiLight = new THREE.HemisphereLight(0xfff5ea, 0x3d2716, 0.9);
+    scene.add(hemiLight);
+
+    const mainLight = new THREE.DirectionalLight(0xffedd5, 1.9);
+    mainLight.position.set(6, 10, 6);
+    mainLight.castShadow = true;
+    mainLight.shadow.mapSize.width = 1024;
+    mainLight.shadow.mapSize.height = 1024;
+    scene.add(mainLight);
+
+    const ceilingSpot1 = new THREE.PointLight(0xfffaed, 2.0, 12);
+    ceilingSpot1.position.set(-4, 4.5, -2);
+    scene.add(ceilingSpot1);
+
+    const ceilingSpot2 = new THREE.PointLight(0xfffaed, 2.0, 12);
+    ceilingSpot2.position.set(4, 4.5, 1);
+    scene.add(ceilingSpot2);
+
+    lightsRef.current = { hemiLight, mainLight, ceilingSpot1, ceilingSpot2 };
+
+    // Suelo y Paredes
+    const floorGeo = new THREE.PlaneGeometry(36, 36);
+    const floorMat = new THREE.MeshStandardMaterial({
+      map: createWorkshopFloorTexture(),
+      roughness: 0.75,
+      metalness: 0.08,
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const backWall = new THREE.Mesh(
+      new THREE.BoxGeometry(30, 6, 0.3),
+      new THREE.MeshStandardMaterial({ color: 0xf1eddf, roughness: 0.85 })
+    );
+    backWall.position.set(0, 3, -9.0);
+    backWall.receiveShadow = true;
+    scene.add(backWall);
+
+    const leftWall = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, 6, 30),
+      new THREE.MeshStandardMaterial({ color: 0xeae4d2, roughness: 0.9 })
+    );
+    leftWall.position.set(-15, 3, 0);
+    leftWall.receiveShadow = true;
+    scene.add(leftWall);
+
+    const rightWall = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, 6, 30),
+      new THREE.MeshStandardMaterial({ color: 0xeae4d2, roughness: 0.9 })
+    );
+    rightWall.position.set(15, 3, 0);
+    rightWall.receiveShadow = true;
+    scene.add(rightWall);
+
+    // Cuadros decorativos en paredes
+    const crearCuadroFoto = (x, y, z, rotY) => {
+      const group = new THREE.Group();
+      const marco = new THREE.Mesh(
+        new THREE.BoxGeometry(1.6, 1.2, 0.08),
+        new THREE.MeshStandardMaterial({ color: 0x3d2716, roughness: 0.4 })
+      );
+      group.add(marco);
+      const lienzo = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.4, 1.0),
+        new THREE.MeshStandardMaterial({ color: 0xfdfbf7, roughness: 0.2 })
+      );
+      lienzo.position.z = 0.045;
+      group.add(lienzo);
+      group.position.set(x, y, z);
+      group.rotation.y = rotY;
+      scene.add(group);
+    };
+
+    crearCuadroFoto(-6.5, 3.2, -8.8, 0);
+    crearCuadroFoto(6.5, 3.2, -8.8, 0);
+    crearCuadroFoto(-14.85, 3.2, -3, Math.PI / 2);
+    crearCuadroFoto(-14.85, 3.2, 4, Math.PI / 2);
+
+    // Muebles
+    const roperoGroup = buildRopero('mara', 0.25);
+    roperoGroup.position.set(-4.5, 0, -1);
+    roperoGroup.rotation.y = 0.35;
+    roperoGroup.userData = { muebleKey: 'ropero', interactiveType: 'ropero' };
+    scene.add(roperoGroup);
+
+    const comedorGroup = buildComedor('cedro');
+    comedorGroup.position.set(2.0, 0, 1.5);
+    comedorGroup.rotation.y = -0.15;
+    comedorGroup.userData = { muebleKey: 'comedor', interactiveType: 'comedor' };
+    scene.add(comedorGroup);
+
+    const escritorioGroup = buildEscritorio('roble');
+    escritorioGroup.position.set(5.0, 0, -4.5);
+    escritorioGroup.rotation.y = -0.4;
+    escritorioGroup.userData = { muebleKey: 'escritorio' };
+    scene.add(escritorioGroup);
+
+    const estanteGroup = buildEstanteria('tajibo');
+    estanteGroup.position.set(-0.5, 0, -8.5);
+    estanteGroup.userData = { muebleKey: 'estante' };
+    scene.add(estanteGroup);
+
+    const crearSillonEjecutivo = () => {
+      const g = new THREE.Group();
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 12), new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 }));
+      base.position.y = 0.04;
+      g.add(base);
+      const asiento = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.15, 0.55), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 }));
+      asiento.position.y = 0.45;
+      g.add(asiento);
+      const respaldo = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.8, 0.12), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 }));
+      respaldo.position.set(0, 0.95, -0.2);
+      g.add(respaldo);
+      g.position.set(3.2, 0, -2.5);
+      g.rotation.y = 2.2;
+      g.userData = { muebleKey: 'sillon' };
+      return g;
+    };
+    const sillonGroup = crearSillonEjecutivo();
+    scene.add(sillonGroup);
+
+    const crearComodaScandi = () => {
+      const g = new THREE.Group();
+      const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 0.45), new THREE.MeshStandardMaterial({ color: 0xded1bd, roughness: 0.6 }));
+      cuerpo.position.y = 0.45;
+      g.add(cuerpo);
+      for (let i = 0; i < 4; i++) {
+        const gaveta = new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.18, 0.04), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 }));
+        gaveta.position.set(0, 0.18 + i * 0.22, 0.23);
+        g.add(gaveta);
+      }
+      g.position.set(-6.0, 0, 2.0);
+      g.rotation.y = 1.0;
+      g.userData = { muebleKey: 'comoda' };
+      return g;
+    };
+    const comodaGroup = crearComodaScandi();
+    scene.add(comodaGroup);
+
+    const workbench = buildWorkbench();
+    workbench.position.set(-5.5, 0, -5.5);
+    workbench.rotation.y = 0.2;
+    scene.add(workbench);
+
+    // ==========================================
+    // IMÁGENES FLOTANTES (BILLBOARDS) PARA DON TEÓFILO Y MARÍA
+    // ==========================================
+    const crearImagenFlotante = (imageUrl, badgeText, x, z, characterType) => {
+      const group = new THREE.Group();
+      
+      // Creamos un canvas dinámico para generar el cartel flotante con foto/icono y texto elegante
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+
+      // Fondo redondeado elegante
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.beginPath();
+      ctx.roundRect(20, 20, 472, 472, 40);
+      ctx.fill();
+      ctx.lineWidth = 12;
+      ctx.strokeStyle = characterType === 'carpintero' ? '#b45309' : '#047857';
+      ctx.stroke();
+
+      // Círculo de avatar / foto central
+      ctx.fillStyle = characterType === 'carpintero' ? '#fef3c7' : '#d1fae5';
+      ctx.beginPath();
+      ctx.arc(256, 200, 110, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Emoji o silueta representativa
+      ctx.font = '90px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(characterType === 'carpintero' ? '👴🏼' : '👩🏻‍💼', 256, 195);
+
+      // Texto de título
+      ctx.fillStyle = '#1c1917';
+      ctx.font = 'bold 36px serif';
+      ctx.fillText(badgeText, 256, 360);
+
+      // Subtítulo indicador
+      ctx.fillStyle = '#78716c';
+      ctx.font = '24px sans-serif';
+      ctx.fillText('¡Clic para hablar!', 256, 415);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+      const planeGeo = new THREE.PlaneGeometry(1.4, 1.4);
+      const mesh = new THREE.Mesh(planeGeo, material);
+      
+      group.add(mesh);
+      group.position.set(x, 1.8, z);
+      group.userData = { characterType };
+      
+      scene.add(group);
+      billBoardsRef.current.push(group); // Guardamos la referencia para aplicar efecto billboard en animate
+      return group;
+    };
+
+    const billboardTeofilo = crearImagenFlotante(null, 'Don Teófilo', -5.0, -4.5, 'carpintero');
+    const billboardMaria = crearImagenFlotante(null, 'María Asesora', 2.5, 3.0, 'asesora');
+
+    interactiveObjectsRef.current = [
+      roperoGroup, comedorGroup, escritorioGroup, estanteGroup, sillonGroup, comodaGroup, billboardTeofilo, billboardMaria
+    ];
+
+    // Raycaster para Clic
+    const raycaster = new THREE.Raycaster();
+    const handlePointerDown = () => {
+      if (!controls.isLocked) return;
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const intersects = raycaster.intersectObjects(interactiveObjectsRef.current, true);
+
+      if (intersects.length > 0) {
+        let obj = intersects[0].object;
+        while (obj && !obj.userData?.muebleKey && !obj.userData?.characterType && obj.parent) {
+          obj = obj.parent;
+        }
+
+        if (obj?.userData?.characterType === 'carpintero') {
+          controls.unlock();
+          setShowDonTeofiloModal(true);
+        } else if (obj?.userData?.characterType === 'asesora') {
+          controls.unlock();
+          setShowMariaModal(true);
+        } else if (obj?.userData?.muebleKey) {
+          setSelectedMuebleKey(obj.userData.muebleKey);
+          setShowMuebleCard(true);
+          if (obj.userData.interactiveType === 'ropero') {
+            obj.rotation.y += obj.rotation.y > 0.5 ? -0.8 : 0.8;
+          }
+        }
+      }
+    };
+    window.addEventListener('mousedown', handlePointerDown);
+
+    // Teclado WASD + Espacio
+    const handleKeyDown = (e) => {
+      if (e.code === 'KeyW') moveStateRef.current.forward = true;
+      if (e.code === 'KeyS') moveStateRef.current.backward = true;
+      if (e.code === 'KeyA') moveStateRef.current.left = true;
+      if (e.code === 'KeyD') moveStateRef.current.right = true;
+      if (e.code === 'Space' && canJumpRef.current) {
+        velocityRef.current.y += 5.5;
+        canJumpRef.current = false;
+      }
+    };
+
+    const handleKeyUp = (e) => {
+      if (e.code === 'KeyW') moveStateRef.current.forward = false;
+      if (e.code === 'KeyS') moveStateRef.current.backward = false;
+      if (e.code === 'KeyA') moveStateRef.current.left = false;
+      if (e.code === 'KeyD') moveStateRef.current.right = false;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    let prevTime = performance.now();
+    const animate = () => {
+      requestAnimationFrame(animate);
+      const time = performance.now();
+      const delta = (time - prevTime) / 1000;
+
+      if (controls.isLocked) {
+        velocityRef.current.x -= velocityRef.current.x * 10.0 * delta;
+        velocityRef.current.z -= velocityRef.current.z * 10.0 * delta;
+        velocityRef.current.y -= 9.8 * 3.5 * delta;
+
+        directionRef.current.z = Number(moveStateRef.current.forward) - Number(moveStateRef.current.backward);
+        directionRef.current.x = Number(moveStateRef.current.right) - Number(moveStateRef.current.left);
+        directionRef.current.normalize();
+
+        if (moveStateRef.current.forward || moveStateRef.current.backward) velocityRef.current.z -= directionRef.current.z * 14.0 * delta;
+        if (moveStateRef.current.left || moveStateRef.current.right) velocityRef.current.x -= directionRef.current.x * 14.0 * delta;
+
+        controls.moveRight(-velocityRef.current.x * delta);
+        controls.moveForward(-velocityRef.current.z * delta);
+
+        camera.position.y += velocityRef.current.y * delta;
+
+        if (camera.position.y < 1.7) {
+          velocityRef.current.y = 0;
+          camera.position.y = 1.7;
+          canJumpRef.current = true;
+        }
+
+        camera.position.x = Math.max(-14.2, Math.min(14.2, camera.position.x));
+        camera.position.z = Math.max(-8.5, Math.min(14.2, camera.position.z));
+      }
+
+      // Hacer que las imágenes flotantes siempre miren directamente a la cámara (Billboarding)
+      if (cameraRef.current) {
+        billBoardsRef.current.forEach((board) => {
+          board.quaternion.copy(cameraRef.current.quaternion);
+        });
+      }
+
+      renderer.render(scene, camera);
+      prevTime = time;
+    };
+    animate();
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('mousedown', handlePointerDown);
+      renderer.dispose();
+    };
+  }, []);
+
+  const cambiarTonoLuz = (tono) => {
+    setCurrentTone(tono);
+    const { hemiLight, mainLight, ceilingSpot1, ceilingSpot2 } = lightsRef.current;
+    if (!hemiLight) return;
+
+    if (tono === 'dia') {
+      hemiLight.color.setHex(0xfff5ea);
+      hemiLight.intensity = 0.9;
+      mainLight.color.setHex(0xffedd5);
+      mainLight.intensity = 1.9;
+      ceilingSpot1.intensity = 2.0;
+      ceilingSpot2.intensity = 2.0;
+    } else if (tono === 'tarde') {
+      hemiLight.color.setHex(0xffedd5);
+      hemiLight.intensity = 0.7;
+      mainLight.color.setHex(0xf97316);
+      mainLight.intensity = 2.2;
+      ceilingSpot1.intensity = 1.8;
+      ceilingSpot2.intensity = 1.8;
+    } else if (tono === 'noche') {
+      hemiLight.color.setHex(0x1e3a8a);
+      hemiLight.intensity = 0.3;
+      mainLight.color.setHex(0x93c5fd);
+      mainLight.intensity = 0.6;
+      ceilingSpot1.intensity = 3.5;
+      ceilingSpot2.intensity = 3.5;
+    }
+  };
+
+  const cambiarFondo = (tipo) => {
+    setBgColor(tipo);
+    if (!sceneRef.current) return;
+    const scene = sceneRef.current;
+
+    if (tipo === 'claro') {
+      scene.background.setHex(0xf6f4ee);
+      scene.fog.color.setHex(0xf6f4ee);
+    } else if (tipo === 'oscuro') {
+      scene.background.setHex(0x0f172a);
+      scene.fog.color.setHex(0x0f172a);
+    } else if (tipo === 'madera') {
+      scene.background.setHex(0x29180b);
+      scene.fog.color.setHex(0x29180b);
+    }
+  };
+
+  const muebleActual = MUEBLES_SHOWROOM[selectedMuebleKey] || MUEBLES_SHOWROOM.ropero;
+
+  return (
+    <div className="relative w-full h-[calc(100vh-80px)] overflow-hidden bg-stone-900 select-none">
+      <div ref={mountRef} className="w-full h-full cursor-crosshair" />
+
+      {/* PANTALLA DE INICIO FPS */}
+      {!isLocked && (
+        <div className="absolute inset-0 z-30 bg-stone-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+          <div className="max-w-md bg-white/10 border border-white/20 p-8 rounded-3xl shadow-2xl backdrop-blur-xl text-white">
+            <Footprints className="w-12 h-12 text-amber-400 mx-auto mb-4 animate-bounce" />
+            <h2 className="text-2xl font-serif-brand font-bold mb-2">Showroom con Imágenes Flotantes • Oruro</h2>
+            <p className="text-sm text-stone-300 mb-6">
+              Recorre la tienda interactiva con avatares en carteles flotantes dinámicos que siempre te miran de frente.
+            </p>
+            <button
+              onClick={() => controlsRef.current?.lock()}
+              className="w-full py-3.5 px-6 rounded-2xl bg-amber-600 hover:bg-amber-500 font-bold text-sm text-white shadow-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Entrar al Showroom Interactivo</span>
+            </button>
+            <div className="mt-4 text-[11px] text-stone-400 flex justify-center gap-3">
+              <span><b>W, A, S, D:</b> Caminar</span>
+              <span><b>Espacio:</b> Saltar</span>
+              <span><b>Clic:</b> Interactuar</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MIRA EN EL CENTRO (CROSSHAIR) */}
+      {isLocked && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
+          <div className="w-2 h-2 rounded-full bg-amber-400/80 border border-white shadow-xs" />
+        </div>
+      )}
+
+      {/* CABECERA SUPERIOR */}
+      <div className="absolute top-4 left-4 z-20 pointer-events-none flex flex-col gap-2">
+        <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-stone-200 px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 shadow-inner">
+            <Hammer className="w-5 h-5 text-amber-800" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Mueblería Modes</span>
+            <h2 className="text-sm font-serif-brand font-bold text-stone-900">Oruro, Bolivia</h2>
+          </div>
+        </div>
+      </div>
+
+      {/* CONTROLES SUPERIORES DERECHOS */}
+      <div className="absolute top-4 right-4 z-20 flex flex-col sm:flex-row items-end sm:items-center gap-2">
+        {/* Selector de Iluminación */}
+        <div className="bg-white/95 backdrop-blur-md border border-stone-200 p-1 rounded-xl shadow-md flex items-center gap-1">
+          <Sun className="w-3.5 h-3.5 text-amber-700 ml-1.5" />
+          {[
+            { id: 'dia', label: '☀️ Día' },
+            { id: 'tarde', label: '🌇 Tarde' },
+            { id: 'noche', label: '🌙 Noche' },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => cambiarTonoLuz(t.id)}
+              className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
+                currentTone === t.id
+                  ? 'bg-amber-100 text-amber-900 font-bold border border-amber-300'
+                  : 'text-stone-600 hover:bg-stone-100'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Selector de Tono de Fondo */}
+        <div className="bg-white/95 backdrop-blur-md border border-stone-200 p-1 rounded-xl shadow-md flex items-center gap-1">
+          <Palette className="w-3.5 h-3.5 text-amber-700 ml-1.5" />
+          {[
+            { id: 'claro', label: 'Claro' },
+            { id: 'oscuro', label: 'Oscuro' },
+            { id: 'madera', label: 'Caoba' },
+          ].map((f) => (
+            <button
+              key={f.id}
+              onClick={() => cambiarFondo(f.id)}
+              className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
+                bgColor === f.id
+                  ? 'bg-amber-800 text-white font-bold shadow-xs'
+                  : 'text-stone-600 hover:bg-stone-100'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={onGoToPanel}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/95 hover:bg-stone-50 text-stone-800 text-xs font-bold border border-stone-200 shadow-md transition-all cursor-pointer"
+        >
+          <Layers className="w-3.5 h-3.5 text-amber-700" />
+          <span className="hidden sm:inline">Panel</span>
+        </button>
+      </div>
+
+      {/* TARJETA TÉCNICA DEL MUEBLE SELECCIONADO */}
+      {showMuebleCard && muebleActual && (
+        <div className="absolute bottom-5 right-5 z-25 max-w-sm w-[92%] bg-white/95 backdrop-blur-md border border-stone-200 rounded-3xl p-5 shadow-2xl text-stone-800">
+          <div className="flex items-start justify-between gap-2 pb-3 border-b border-stone-100">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                {muebleActual.categoria}
+              </span>
+              <h3 className="font-serif-brand font-bold text-lg text-stone-900 mt-1">
+                {muebleActual.nombre}
+              </h3>
+              <p className="text-xs text-amber-900 font-semibold mt-0.5">
+                Acabado: {muebleActual.color_acabado}
+              </p>
+            </div>
+            <button onClick={() => setShowMuebleCard(false)} className="text-stone-400 hover:text-stone-700 p-1 rounded-full cursor-pointer">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="my-3 p-3 rounded-2xl bg-stone-50 border border-stone-200">
+            <div className="flex items-center justify-between text-stone-600 mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 text-stone-700">
+                <Ruler className="w-3.5 h-3.5 text-amber-700" /> Medidas (cm):
+              </span>
+              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                {muebleActual.disponibilidad}
+              </span>
+            </div>
+            <p className="text-xs text-stone-600 mb-3">{muebleActual.descripcion}</p>
+            <div className="grid grid-cols-3 gap-2 text-center font-mono">
+              <div className="bg-white p-2 rounded-xl border border-stone-200">
+                <span className="text-[9px] text-stone-400 block uppercase">Alto</span>
+                <strong className="text-sm text-amber-900">{muebleActual.alto_cm} cm</strong>
+              </div>
+              <div className="bg-white p-2 rounded-xl border border-stone-200">
+                <span className="text-[9px] text-stone-400 block uppercase">Ancho</span>
+                <strong className="text-sm text-amber-900">{muebleActual.ancho_cm} cm</strong>
+              </div>
+              <div className="bg-white p-2 rounded-xl border border-stone-200">
+                <span className="text-[9px] text-stone-400 block uppercase">Prof.</span>
+                <strong className="text-sm text-amber-900">{muebleActual.profundidad_cm} cm</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => onComprarMueble(muebleActual)}
+              className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-800 hover:bg-amber-700 text-white font-bold text-xs shadow-md cursor-pointer"
+            >
+              <ShoppingBag className="w-4 h-4 text-amber-300" />
+              <span>Adquirir (Bs. {muebleActual.precio_bs})</span>
+            </button>
+            <button
+              onClick={onOpenCotizador}
+              className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-md cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Cotizar a Medida</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE DON TEÓFILO */}
+      {showDonTeofiloModal && (
+        <div className="fixed inset-0 z-50 bg-stone-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 text-stone-800">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-xl">👴🏼</div>
+                <div>
+                  <h3 className="font-bold text-base text-stone-900">Don Teófilo • Maestro Artesano</h3>
+                  <p className="text-xs text-stone-500">Carpintería Fina Oruro</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDonTeofiloModal(false)} className="text-stone-400 hover:text-stone-700 p-1 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-stone-600 my-4 leading-relaxed bg-amber-50 p-3 rounded-2xl border border-amber-200">
+              "¡Hola vecino! ¿Vio nuestros nuevos carteles flotantes interactivos? Siempre giran para saludarle mientras camina por el taller en Oruro."
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowDonTeofiloModal(false); onOpenCotizador(); }}
+                className="flex-1 py-2.5 rounded-xl bg-amber-800 hover:bg-amber-700 text-white font-bold text-xs shadow-md cursor-pointer"
+              >
+                Abrir Cotizador Formal
+              </button>
+              <button
+                onClick={() => setShowDonTeofiloModal(false)}
+                className="py-2.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs cursor-pointer"
+              >
+                Volver a la Tienda
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ASESORA MARÍA */}
+      {showMariaModal && (
+        <div className="fixed inset-0 z-50 bg-stone-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 text-stone-800">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-xl">👩🏻‍💼</div>
+                <div>
+                  <h3 className="font-bold text-base text-stone-900">María • Asesora Comercial</h3>
+                  <p className="text-xs text-stone-500">Mueblería Modes</p>
+                </div>
+              </div>
+              <button onClick={() => setShowMariaModal(false)} className="text-stone-400 hover:text-stone-700 p-1 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-stone-600 my-4 leading-relaxed bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
+              "¡Bienvenida/o! Puede hacer clic directamente sobre mi imagen flotante para abrir el canal directo de WhatsApp y consultar stock en Oruro."
+            </p>
+            <div className="flex gap-2">
+              <a
+                href="https://wa.me/59172418920"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shadow-md cursor-pointer"
+              >
+                <Phone className="w-4 h-4" />
+                <span>Contactar WhatsApp</span>
+              </a>
+              <button
+                onClick={() => setShowMariaModal(false)}
+                className="py-2.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

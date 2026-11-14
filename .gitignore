@@ -1,0 +1,15 @@
+# Python / FastAPI
+backend/venv/
+backend/__pycache__/
+*.py[cod]
+*$py.class
+backend/.env
+
+# Node.js / React
+node_modules/
+dist/
+build/
+.DS_Store
+
+# Variables de entorno generales
+.env
