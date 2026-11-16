@@ -49,7 +49,7 @@ def _normalize_phone(phone: str) -> str:
 def _get_allowed_origins() -> List[str]:
     raw = os.getenv(
         "FRONTEND_ORIGINS",
-        "http://localhost:3000,http://127.0.0.1:3000,http://0.0.0.0:3000,http://localhost:5173,http://127.0.0.1:5173,http://0.0.0.0:5173",
+        "https://carpinteria-modes-web.vercel.app,http://localhost:3000,http://127.0.0.1:3000,http://0.0.0.0:3000,http://localhost:5173,http://127.0.0.1:5173,http://0.0.0.0:5173",
     )
     origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
     return origins or ["*"]
@@ -70,7 +70,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_get_allowed_origins(),
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?",
+    allow_origin_regex=r"https?://([a-zA-Z0-9_-]+\.)*vercel\.app|(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -83,7 +83,6 @@ def health_check(db: Session = Depends(get_db)) -> Dict[str, Any]:
     try:
         db.execute(text("SELECT 1"))
     except Exception as exc:
-        # No exponer cadenas de conexión ni detalles internos al navegador.
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="FastAPI está activo, pero no pudo conectarse a Supabase.",
