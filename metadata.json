@@ -1,6 +1,0 @@
-{
-  "name": "Mueblería Modes — Showroom 3D",
-  "description": "Tienda y showroom 3D interactivo de carpintería fina y muebles artesanales en madera boliviana en Oruro.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
