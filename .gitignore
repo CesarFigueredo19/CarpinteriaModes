@@ -13,3 +13,4 @@ build/
 
 # Variables de entorno generales
 .env
+.env.local
